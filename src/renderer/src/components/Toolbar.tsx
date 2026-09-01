@@ -11,11 +11,13 @@ import {
   Sun
 } from 'lucide-react'
 import type { MarkdownDocument } from '../../../shared/types'
+import { formatShortcut, revealInFolderLabel } from '../lib/platform'
 import { BrandMark } from './BrandMark'
 
 export type ThemeMode = 'system' | 'light' | 'dark'
 
 interface ToolbarProps {
+  platform: NodeJS.Platform
   document: MarkdownDocument | null
   sidebarOpen: boolean
   themeMode: ThemeMode
@@ -46,6 +48,7 @@ const themeTitle: Record<ThemeMode, string> = {
 }
 
 export function Toolbar({
+  platform,
   document,
   sidebarOpen,
   themeMode,
@@ -58,6 +61,8 @@ export function Toolbar({
   onFontDecrease,
   onFontIncrease
 }: ToolbarProps): React.JSX.Element {
+  const revealLabel = revealInFolderLabel(platform)
+
   return (
     <header className="titlebar">
       <div className="titlebar-left no-drag">
@@ -66,7 +71,7 @@ export function Toolbar({
           type="button"
           onClick={onToggleSidebar}
           aria-label={sidebarOpen ? '收起侧栏' : '展开侧栏'}
-          title="切换侧栏（Ctrl+B）"
+          title={`切换侧栏（${formatShortcut(platform, 'B')}）`}
         >
           <Menu size={18} />
         </button>
@@ -92,7 +97,7 @@ export function Toolbar({
           className="toolbar-button primary-action"
           type="button"
           onClick={onOpen}
-          title="打开文件（Ctrl+O）"
+          title={`打开文件（${formatShortcut(platform, 'O')}）`}
         >
           <FolderOpen size={17} />
           <span>打开</span>
@@ -104,7 +109,7 @@ export function Toolbar({
           onClick={onToggleFind}
           disabled={!document}
           aria-label="在文档中查找"
-          title="查找（Ctrl+F）"
+          title={`查找（${formatShortcut(platform, 'F')}）`}
         >
           <Search size={17} />
         </button>
@@ -113,8 +118,8 @@ export function Toolbar({
           type="button"
           onClick={onReveal}
           disabled={!document}
-          aria-label="在资源管理器中显示"
-          title="在资源管理器中显示"
+          aria-label={revealLabel}
+          title={revealLabel}
         >
           <LocateFixed size={17} />
         </button>

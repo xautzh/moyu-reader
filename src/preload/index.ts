@@ -17,6 +17,7 @@ function subscribe<T>(channel: string, listener: (payload: T, extra?: string) =>
 }
 
 const api: MoyuApi = {
+  platform: process.platform,
   openDialog: () =>
     ipcRenderer.invoke('document:open-dialog') as Promise<OpenDocumentResult | null>,
   openPath: (filePath) =>

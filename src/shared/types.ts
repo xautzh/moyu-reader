@@ -30,6 +30,7 @@ export interface FindResult {
 }
 
 export interface MoyuApi {
+  readonly platform: NodeJS.Platform
   openDialog: () => Promise<OpenDocumentResult | null>
   openPath: (filePath: string) => Promise<OpenDocumentResult>
   openLink: (href: string, currentFilePath: string) => Promise<OpenLinkResult>

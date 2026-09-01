@@ -355,22 +355,39 @@ async function openDocumentLink(href: string, currentFilePath: string): Promise<
 }
 
 function createApplicationMenu(): void {
+  const isMac = process.platform === 'darwin'
+  const fileSubmenu: MenuItemConstructorOptions[] = [
+    {
+      label: '打开 Markdown…',
+      accelerator: 'CmdOrCtrl+O',
+      click: async () => {
+        const result = await chooseMarkdownFile()
+        if (result) {
+          dispatchOpenedDocument(result)
+        }
+      }
+    }
+  ]
+
+  if (!isMac) {
+    fileSubmenu.push({ type: 'separator' }, { role: 'quit', label: '退出' })
+  }
+
   const template: MenuItemConstructorOptions[] = [
     {
       label: '文件',
+      submenu: fileSubmenu
+    },
+    {
+      label: '编辑',
       submenu: [
-        {
-          label: '打开 Markdown…',
-          accelerator: 'CmdOrCtrl+O',
-          click: async () => {
-            const result = await chooseMarkdownFile()
-            if (result) {
-              dispatchOpenedDocument(result)
-            }
-          }
-        },
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
         { type: 'separator' },
-        { role: 'quit', label: '退出' }
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' }
       ]
     },
     {
@@ -386,15 +403,50 @@ function createApplicationMenu(): void {
       label: '窗口',
       submenu: [
         { role: 'minimize', label: '最小化' },
-        { role: 'close', label: '关闭' }
+        { role: 'close', label: '关闭' },
+        ...(isMac
+          ? ([
+              { type: 'separator' },
+              { role: 'front', label: '前置所有窗口' }
+            ] as MenuItemConstructorOptions[])
+          : [])
+      ]
+    },
+    {
+      label: '帮助',
+      submenu: [
+        {
+          label: '项目主页',
+          click: () => {
+            void shell.openExternal('https://github.com/xautzh/moyu-reader')
+          }
+        }
       ]
     }
   ]
+
+  if (isMac) {
+    template.unshift({
+      label: app.name,
+      submenu: [
+        { role: 'about', label: '关于墨阅' },
+        { type: 'separator' },
+        { role: 'services', label: '服务' },
+        { type: 'separator' },
+        { role: 'hide', label: '隐藏墨阅' },
+        { role: 'hideOthers', label: '隐藏其他应用' },
+        { role: 'unhide', label: '全部显示' },
+        { type: 'separator' },
+        { role: 'quit', label: '退出墨阅' }
+      ]
+    })
+  }
 
   Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
 function createWindow(): BrowserWindow {
+  const isMac = process.platform === 'darwin'
   const window = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -402,14 +454,18 @@ function createWindow(): BrowserWindow {
     minHeight: 560,
     show: false,
     backgroundColor: '#f5f3ee',
-    autoHideMenuBar: true,
+    autoHideMenuBar: !isMac,
     title: '墨阅 Markdown 阅读器',
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#f5f3ee',
-      symbolColor: '#242622',
-      height: 48
-    },
+    titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
+    ...(isMac
+      ? {}
+      : {
+          titleBarOverlay: {
+            color: '#f5f3ee',
+            symbolColor: '#242622',
+            height: 48
+          }
+        }),
     webPreferences: {
       preload: join(currentDirectory, '../preload/index.js'),
       contextIsolation: true,
@@ -491,6 +547,9 @@ function registerIpcHandlers(): void {
     await writeRecentFiles([])
   })
   ipcMain.on('window:set-theme', (event, theme: 'light' | 'dark') => {
+    if (process.platform === 'darwin') {
+      return
+    }
     const window = BrowserWindow.fromWebContents(event.sender)
     window?.setTitleBarOverlay({
       color: theme === 'dark' ? '#191b19' : '#f5f3ee',

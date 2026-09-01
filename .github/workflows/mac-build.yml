@@ -1,0 +1,67 @@
+name: Build macOS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Read version
+        id: metadata
+        shell: bash
+        run: node -p "'version=' + require('./package.json').version" >> "$GITHUB_OUTPUT"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Intel and Apple Silicon packages
+        run: npm run dist:mac
+
+      - name: Verify packages and create checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.metadata.outputs.version }}"
+          files=(
+            "dist/MoyuReader-${version}-mac-x64.dmg"
+            "dist/MoyuReader-${version}-mac-x64.zip"
+            "dist/MoyuReader-${version}-mac-arm64.dmg"
+            "dist/MoyuReader-${version}-mac-arm64.zip"
+          )
+          for file in "${files[@]}"; do
+            test -s "$file"
+          done
+          shasum -a 256 "${files[@]}" > dist/SHA256SUMS-mac.txt
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v4
+        with:
+          name: moyu-reader-macos-${{ steps.metadata.outputs.version }}
+          path: |
+            dist/MoyuReader-${{ steps.metadata.outputs.version }}-mac-x64.dmg
+            dist/MoyuReader-${{ steps.metadata.outputs.version }}-mac-x64.zip
+            dist/MoyuReader-${{ steps.metadata.outputs.version }}-mac-arm64.dmg
+            dist/MoyuReader-${{ steps.metadata.outputs.version }}-mac-arm64.zip
+            dist/SHA256SUMS-mac.txt
+          if-no-files-found: error
+          retention-days: 7

@@ -1,7 +1,7 @@
 {
   "name": "moyu-reader",
-  "version": "1.0.0",
-  "description": "墨阅：专注、克制的 Windows Markdown 阅读器。",
+  "version": "1.1.0",
+  "description": "墨阅：专注、克制的桌面 Markdown 阅读器。",
   "main": "./out/main/index.js",
   "author": "Moyu Reader",
   "license": "MIT",
@@ -15,7 +15,8 @@
     "build": "npm run typecheck && npm run test && electron-vite build",
     "icons": "node scripts/generate-icon.mjs",
     "qa:electron": "node scripts/smoke-electron.mjs",
-    "dist:win": "npm run icons && npm run build && electron-builder --win nsis --x64"
+    "dist:win": "npm run icons && npm run build && electron-builder --win nsis --x64 --publish never",
+    "dist:mac": "npm run icons && npm run build && electron-builder --mac --publish never"
   },
   "dependencies": {
     "github-slugger": "^2.0.0",
@@ -73,6 +74,27 @@
       "icon": "build/icon.png",
       "executableName": "MoyuReader",
       "artifactName": "MoyuReader-Setup-${version}.${ext}"
+    },
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "artifactName": "MoyuReader-${version}-mac-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

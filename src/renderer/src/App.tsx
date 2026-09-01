@@ -441,8 +441,12 @@ export default function App(): React.JSX.Element {
   const shellStyle = { '--reader-scale': fontScale } as CSSProperties
 
   return (
-    <div className={`app-shell theme-${resolvedTheme}`} style={shellStyle}>
+    <div
+      className={`app-shell theme-${resolvedTheme} platform-${window.moyu.platform}`}
+      style={shellStyle}
+    >
       <Toolbar
+        platform={window.moyu.platform}
         document={currentDocument}
         sidebarOpen={sidebarOpen}
         themeMode={themeMode}

@@ -9,5 +9,5 @@ const sourcePath = resolve(projectDirectory, 'build', 'icon.svg')
 const outputPath = resolve(projectDirectory, 'build', 'icon.png')
 
 await mkdir(dirname(outputPath), { recursive: true })
-await sharp(sourcePath).resize(512, 512).png().toFile(outputPath)
+await sharp(sourcePath).resize(1024, 1024).png().toFile(outputPath)
 console.log(`Generated ${outputPath}`)

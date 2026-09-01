@@ -131,6 +131,11 @@ a:focus-visible {
   user-select: none;
 }
 
+.platform-darwin .titlebar {
+  padding-right: 10px;
+  padding-left: 78px;
+}
+
 .no-drag,
 .no-drag * {
   -webkit-app-region: no-drag;
