@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="300" viewBox="0 0 960 300">
+  <rect width="960" height="300" rx="24" fill="#eef2ef"/>
+  <g font-family="Segoe UI, Microsoft YaHei, sans-serif" text-anchor="middle">
+    <rect x="70" y="95" width="210" height="110" rx="16" fill="#ffffff" stroke="#b9c9c1" stroke-width="2"/>
+    <text x="175" y="143" fill="#315c4f" font-size="23" font-weight="700">打开文档</text>
+    <text x="175" y="176" fill="#6d7c75" font-size="16">选择或拖放 .md</text>
+    <path d="M305 150h100" stroke="#4c806f" stroke-width="4" stroke-linecap="round"/>
+    <path d="m392 137 17 13-17 13" fill="none" stroke="#4c806f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="425" y="95" width="210" height="110" rx="16" fill="#ffffff" stroke="#b9c9c1" stroke-width="2"/>
+    <text x="530" y="143" fill="#315c4f" font-size="23" font-weight="700">专注阅读</text>
+    <text x="530" y="176" fill="#6d7c75" font-size="16">目录 · 主题 · 查找</text>
+    <path d="M660 150h100" stroke="#4c806f" stroke-width="4" stroke-linecap="round"/>
+    <path d="m747 137 17 13-17 13" fill="none" stroke="#4c806f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="780" y="95" width="110" height="110" rx="55" fill="#315c4f"/>
+    <text x="835" y="158" fill="#ffffff" font-size="24" font-weight="700">完成</text>
+  </g>
+</svg>
