@@ -24,6 +24,14 @@ describe('extractOutline', () => {
   it('returns an empty outline for documents without headings', () => {
     expect(extractOutline('Just a paragraph.')).toEqual([])
   })
+
+  it('ignores YAML front matter fields when building the outline', () => {
+    const markdown = '---\ntitle: Hidden metadata\ncategory: Internal\n---\n\n# Visible title\n'
+
+    expect(extractOutline(markdown)).toEqual([
+      { depth: 1, text: 'Visible title', id: 'visible-title' }
+    ])
+  })
 })
 
 describe('estimateReadingStats', () => {
@@ -34,6 +42,13 @@ describe('estimateReadingStats', () => {
     expect(stats.words).toBe(8)
     expect(stats.minutes).toBe(1)
     expect(stats.lines).toBe(3)
+  })
+
+  it('excludes YAML front matter from reading statistics while retaining physical line count', () => {
+    const stats = estimateReadingStats('---\nsecret: hidden words\n---\n\nVisible words.')
+
+    expect(stats.words).toBe(2)
+    expect(stats.lines).toBe(5)
   })
 })
 

@@ -3,6 +3,7 @@ import { toString as mdastToString } from 'mdast-util-to-string'
 import remarkParse from 'remark-parse'
 import { unified } from 'unified'
 import { visit } from 'unist-util-visit'
+import { splitFrontMatter } from './frontmatter'
 
 export interface OutlineItem {
   depth: number
@@ -18,7 +19,7 @@ export interface ReadingStats {
 }
 
 export function extractOutline(markdown: string): OutlineItem[] {
-  const tree = unified().use(remarkParse).parse(markdown)
+  const tree = unified().use(remarkParse).parse(splitFrontMatter(markdown).body)
   const slugger = new GithubSlugger()
   const headings: OutlineItem[] = []
 
@@ -39,7 +40,7 @@ export function extractOutline(markdown: string): OutlineItem[] {
 }
 
 export function estimateReadingStats(markdown: string): ReadingStats {
-  const plainText = mdastToString(unified().use(remarkParse).parse(markdown))
+  const plainText = mdastToString(unified().use(remarkParse).parse(splitFrontMatter(markdown).body))
   const cjkCharacters =
     plainText.match(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/gu) ??
     []

@@ -14,12 +14,12 @@ describe('isMarkdownFile', () => {
 
 describe('pickMarkdownArgument', () => {
   it('returns the first Markdown path and ignores switches and the executable', () => {
-    const argv = ['Moyu Reader.exe', '--flag', 'D:\\docs\\readme.md', 'other.md']
+    const argv = ['墨阅.exe', '--flag', 'D:\\docs\\readme.md', 'other.md']
     expect(pickMarkdownArgument(argv)).toBe('D:\\docs\\readme.md')
   })
 
   it('returns undefined when no Markdown path exists', () => {
-    expect(pickMarkdownArgument(['Moyu Reader.exe', '--flag'])).toBeUndefined()
+    expect(pickMarkdownArgument(['墨阅.exe', '--flag'])).toBeUndefined()
   })
 })
 

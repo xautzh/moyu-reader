@@ -1,16 +1,80 @@
 import { Check, Copy } from 'lucide-react'
-import { isValidElement, type ReactNode, useMemo, useState } from 'react'
+import mermaid from 'mermaid'
+import { isValidElement, type ReactNode, useEffect, useId, useMemo, useState } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import rehypeHighlight from 'rehype-highlight'
+import rehypeKatex from 'rehype-katex'
 import rehypeSlug from 'rehype-slug'
 import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
 import type { MarkdownDocument } from '../../../shared/types'
+import { splitFrontMatter } from '../lib/frontmatter'
 import { resolveImageSource } from '../lib/markdown'
 
 interface MarkdownViewProps {
   document: MarkdownDocument
+  theme: 'light' | 'dark'
   onOpenLink: (href: string) => void
   onNotify: (message: string) => void
+}
+
+function MermaidDiagram({
+  source,
+  theme
+}: {
+  source: string
+  theme: 'light' | 'dark'
+}): React.JSX.Element {
+  const rawId = useId()
+  const diagramId = useMemo(() => `moyu-mermaid-${rawId.replace(/[^a-z\d]/gi, '')}`, [rawId])
+  const [svg, setSvg] = useState('')
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    setSvg('')
+    setError('')
+    mermaid.initialize({
+      startOnLoad: false,
+      securityLevel: 'strict',
+      theme: theme === 'dark' ? 'dark' : 'neutral',
+      fontFamily: 'Inter, "PingFang SC", "Microsoft YaHei", sans-serif'
+    })
+    void mermaid
+      .render(diagramId, source)
+      .then((result) => {
+        if (!cancelled) {
+          setSvg(result.svg)
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Mermaid 图表语法有误，请在源码模式中检查。')
+        }
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [diagramId, source, theme])
+
+  if (error) {
+    return (
+      <div className="mermaid-error" role="alert">
+        {error}
+      </div>
+    )
+  }
+
+  return (
+    <figure className="mermaid-diagram" role="img" aria-label="Mermaid 图表">
+      {svg ? (
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: Mermaid sanitizes SVG with securityLevel "strict" before it reaches React.
+        <div dangerouslySetInnerHTML={{ __html: svg }} />
+      ) : (
+        <div className="diagram-loading">正在绘制图表…</div>
+      )}
+    </figure>
+  )
 }
 
 function nodeText(node: ReactNode): string {
@@ -59,9 +123,11 @@ function CodeBlock({
 
 export function MarkdownView({
   document,
+  theme,
   onOpenLink,
   onNotify
 }: MarkdownViewProps): React.JSX.Element {
+  const markdownBody = useMemo(() => splitFrontMatter(document.content).body, [document.content])
   const components = useMemo<Components>(
     () => ({
       a: ({ href, children, ...props }) => (
@@ -86,7 +152,15 @@ export function MarkdownView({
           loading="lazy"
         />
       ),
-      pre: ({ children }) => <CodeBlock onNotify={onNotify}>{children}</CodeBlock>,
+      pre: ({ children }) => {
+        if (
+          isValidElement<{ className?: string; children?: ReactNode }>(children) &&
+          children.props.className?.split(' ').includes('language-mermaid')
+        ) {
+          return <MermaidDiagram source={nodeText(children).replace(/\n$/, '')} theme={theme} />
+        }
+        return <CodeBlock onNotify={onNotify}>{children}</CodeBlock>
+      },
       table: ({ children }) => (
         <section className="table-scroll" aria-label="Markdown 表格">
           <table>{children}</table>
@@ -96,18 +170,22 @@ export function MarkdownView({
         <input type={type} {...props} disabled={type === 'checkbox' || props.disabled} />
       )
     }),
-    [document.assetBaseUrl, onNotify, onOpenLink]
+    [document.assetBaseUrl, onNotify, onOpenLink, theme]
   )
 
   return (
     <article className="markdown-body" aria-label={`${document.fileName} 内容`}>
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeSlug, [rehypeHighlight, { detect: false, ignoreMissing: true }]]}
+        remarkPlugins={[remarkGfm, remarkMath]}
+        rehypePlugins={[
+          rehypeSlug,
+          rehypeKatex,
+          [rehypeHighlight, { detect: false, ignoreMissing: true }]
+        ]}
         components={components}
         skipHtml
       >
-        {document.content}
+        {markdownBody}
       </ReactMarkdown>
     </article>
   )

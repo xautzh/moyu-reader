@@ -1,11 +1,18 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
+  AppCommand,
+  DraftRecord,
+  ExportResult,
   FindResult,
   MarkdownDocument,
   MoyuApi,
   OpenDocumentResult,
   OpenLinkResult,
-  RecentFile
+  RecentFile,
+  SaveDocumentRequest,
+  SaveDocumentResult,
+  SavedAsset,
+  WorkspaceSnapshot
 } from '../shared/types'
 
 function subscribe<T>(channel: string, listener: (payload: T, extra?: string) => void): () => void {
@@ -16,12 +23,27 @@ function subscribe<T>(channel: string, listener: (payload: T, extra?: string) =>
   return () => ipcRenderer.removeListener(channel, handler)
 }
 
+function subscribeWithoutPayload(channel: string, listener: () => void): () => void {
+  const handler = (): void => listener()
+  ipcRenderer.on(channel, handler)
+  return () => ipcRenderer.removeListener(channel, handler)
+}
+
 const api: MoyuApi = {
   platform: process.platform,
+  newDocument: () => ipcRenderer.invoke('document:new') as Promise<void>,
   openDialog: () =>
     ipcRenderer.invoke('document:open-dialog') as Promise<OpenDocumentResult | null>,
   openPath: (filePath) =>
     ipcRenderer.invoke('document:open-path', filePath) as Promise<OpenDocumentResult>,
+  saveDocument: (request: SaveDocumentRequest) =>
+    ipcRenderer.invoke('document:save', request) as Promise<SaveDocumentResult>,
+  saveDocumentAs: (content, suggestedName) =>
+    ipcRenderer.invoke(
+      'document:save-as',
+      content,
+      suggestedName
+    ) as Promise<SaveDocumentResult | null>,
   openLink: (href, currentFilePath) =>
     ipcRenderer.invoke('document:open-link', href, currentFilePath) as Promise<OpenLinkResult>,
   getCurrentDocument: () =>
@@ -31,6 +53,26 @@ const api: MoyuApi = {
     ipcRenderer.invoke('recent:remove', filePath) as Promise<RecentFile[]>,
   clearRecentFiles: () => ipcRenderer.invoke('recent:clear') as Promise<void>,
   revealFile: (filePath) => ipcRenderer.invoke('document:reveal', filePath) as Promise<void>,
+  chooseImage: (currentFilePath) =>
+    ipcRenderer.invoke('asset:choose-image', currentFilePath) as Promise<SavedAsset | null>,
+  saveImageData: (currentFilePath, fileName, data) =>
+    ipcRenderer.invoke('asset:save-data', currentFilePath, fileName, data) as Promise<SavedAsset>,
+  openWorkspace: () => ipcRenderer.invoke('workspace:open') as Promise<WorkspaceSnapshot | null>,
+  scanWorkspace: (rootPath) =>
+    ipcRenderer.invoke('workspace:scan', rootPath) as Promise<WorkspaceSnapshot>,
+  workspaceForDocument: (filePath) =>
+    ipcRenderer.invoke('workspace:for-document', filePath) as Promise<WorkspaceSnapshot>,
+  getDraft: (filePath) => ipcRenderer.invoke('draft:get', filePath) as Promise<DraftRecord | null>,
+  saveDraft: (draft) => ipcRenderer.invoke('draft:save', draft) as Promise<void>,
+  clearDraft: (filePath) => ipcRenderer.invoke('draft:clear', filePath) as Promise<void>,
+  exportHtml: (html, suggestedName) =>
+    ipcRenderer.invoke('export:html', html, suggestedName) as Promise<ExportResult | null>,
+  exportPdf: (suggestedName) =>
+    ipcRenderer.invoke('export:pdf', suggestedName) as Promise<ExportResult | null>,
+  printDocument: () => ipcRenderer.invoke('document:print') as Promise<ExportResult>,
+  setDirty: (dirty) => ipcRenderer.send('document:set-dirty', dirty),
+  confirmClose: () => ipcRenderer.send('window:confirm-close'),
+  cancelClose: () => ipcRenderer.send('window:cancel-close'),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   setTitlebarTheme: (theme) => ipcRenderer.send('window:set-theme', theme),
   findInPage: (text, forward, startNewSearch) =>
@@ -41,8 +83,12 @@ const api: MoyuApi = {
       listener(document, anchor)
     ),
   onDocumentUpdated: (listener) => subscribe<MarkdownDocument>('document:updated', listener),
+  onExternalChange: (listener) => subscribe<MarkdownDocument>('document:external-change', listener),
+  onOpenRequested: (listener) => subscribe<string>('document:open-requested', listener),
   onDocumentError: (listener) => subscribe<string>('document:error', listener),
-  onFindResult: (listener) => subscribe<FindResult>('window:find-result', listener)
+  onFindResult: (listener) => subscribe<FindResult>('window:find-result', listener),
+  onCloseRequested: (listener) => subscribeWithoutPayload('window:close-requested', listener),
+  onAppCommand: (listener) => subscribe<AppCommand>('app-command', listener)
 }
 
 contextBridge.exposeInMainWorld('moyu', api)

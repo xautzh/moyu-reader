@@ -1,5 +1,5 @@
-import React from 'react'
 import ReactDOM from 'react-dom/client'
+import 'katex/dist/katex.min.css'
 import App from './App'
 import './styles.css'
 
@@ -8,8 +8,4 @@ if (!rootElement) {
   throw new Error('Unable to find the application root element.')
 }
 
-ReactDOM.createRoot(rootElement).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
+ReactDOM.createRoot(rootElement).render(<App />)
