@@ -2,6 +2,7 @@ import { FolderOpen } from 'lucide-react'
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type {
   AppCommand,
+  AppUpdateState,
   DraftRecord,
   EditorMode,
   FindResult,
@@ -18,6 +19,7 @@ import { RichMarkdownEditor, type RichMarkdownEditorHandle } from './components/
 import { Sidebar } from './components/Sidebar'
 import { SourceEditor, type SourceEditorHandle } from './components/SourceEditor'
 import { type ThemeMode, Toolbar } from './components/Toolbar'
+import { UpdateDialog } from './components/UpdateDialog'
 import { type MarkdownEditCommand, shouldRestoreDraft } from './lib/editor'
 import { buildStandaloneHtml } from './lib/export'
 import { formatFileSize } from './lib/format'
@@ -133,6 +135,11 @@ export default function App(): React.JSX.Element {
   const [unsavedRequest, setUnsavedRequest] = useState<UnsavedRequest | null>(null)
   const [draftPrompt, setDraftPrompt] = useState<DraftPrompt | null>(null)
   const [conflictPrompt, setConflictPrompt] = useState<ConflictPrompt | null>(null)
+  const [updateDialogOpen, setUpdateDialogOpen] = useState(false)
+  const [updateState, setUpdateState] = useState<AppUpdateState>({
+    status: 'idle',
+    currentVersion: ''
+  })
 
   const previewScrollRef = useRef<HTMLDivElement>(null)
   const printRootRef = useRef<HTMLDivElement>(null)
@@ -554,6 +561,33 @@ export default function App(): React.JSX.Element {
     }
   }, [mode, notify])
 
+  const checkForUpdates = useCallback(async () => {
+    setUpdateDialogOpen(true)
+    try {
+      setUpdateState(await window.moyu.checkForUpdates())
+    } catch (error) {
+      setUpdateState((current) => ({
+        ...current,
+        status: 'error',
+        message: readableError(error, '更新服务暂时不可用。'),
+        manual: true
+      }))
+    }
+  }, [])
+
+  const downloadUpdate = useCallback(async () => {
+    try {
+      setUpdateState(await window.moyu.downloadUpdate())
+    } catch (error) {
+      setUpdateState((current) => ({
+        ...current,
+        status: 'error',
+        message: readableError(error, '更新下载失败。'),
+        manual: true
+      }))
+    }
+  }, [])
+
   const handleAppCommand = useCallback(
     (command: AppCommand) => {
       if (command === 'new') {
@@ -576,9 +610,12 @@ export default function App(): React.JSX.Element {
         toggleFocusMode()
       } else if (command === 'toggle-typewriter') {
         toggleTypewriterMode()
+      } else if (command === 'check-update') {
+        void checkForUpdates()
       }
     },
     [
+      checkForUpdates,
       exportHtmlCurrent,
       exportPdfCurrent,
       printCurrent,
@@ -659,8 +696,22 @@ export default function App(): React.JSX.Element {
       }
     })
     const unsubscribeCommand = window.moyu.onAppCommand(handleAppCommand)
+    const unsubscribeUpdate = window.moyu.onUpdateState((state) => {
+      setUpdateState(state)
+      if (
+        state.status === 'available' ||
+        state.status === 'downloaded' ||
+        (state.status === 'error' && state.manual)
+      ) {
+        setUpdateDialogOpen(true)
+      }
+    })
 
     void refreshRecentFiles()
+    void window.moyu
+      .getUpdateState()
+      .then(setUpdateState)
+      .catch(() => undefined)
     void window.moyu.getCurrentDocument().then(async (documentData) => {
       if (disposed || openedByEvent) {
         return
@@ -689,6 +740,7 @@ export default function App(): React.JSX.Element {
       unsubscribeFind()
       unsubscribeClose()
       unsubscribeCommand()
+      unsubscribeUpdate()
     }
   }, [handleAppCommand, loadDocument, notify, refreshRecentFiles, requestNavigation])
 
@@ -1323,6 +1375,15 @@ export default function App(): React.JSX.Element {
           {toast}
         </div>
       )}
+
+      <UpdateDialog
+        open={updateDialogOpen}
+        state={updateState}
+        onClose={() => setUpdateDialogOpen(false)}
+        onCheck={() => void checkForUpdates()}
+        onDownload={() => void downloadUpdate()}
+        onInstall={() => void window.moyu.installUpdate()}
+      />
 
       <ConfirmDialog
         open={Boolean(unsavedRequest)}

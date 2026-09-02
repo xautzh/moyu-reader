@@ -2182,6 +2182,40 @@ a:focus-visible {
   color: var(--danger);
 }
 
+.update-dialog {
+  width: min(460px, calc(100vw - 32px));
+}
+
+.update-dialog-icon {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.spin-icon {
+  animation: spin 900ms linear infinite;
+}
+
+.update-progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  margin-top: 14px;
+  border-radius: 999px;
+  background: var(--border);
+}
+
+.update-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 180ms ease-out;
+}
+
+.update-dialog .dialog-button {
+  gap: 7px;
+}
+
 .print-root {
   display: none;
 }

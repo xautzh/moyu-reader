@@ -20,6 +20,13 @@
 - 写作辅助：专注模式、打字机模式、全文查找、字号与明暗主题
 - 发布能力：导出 HTML、导出 PDF、系统打印
 - 桌面集成：Windows/macOS 文件关联、Windows NSIS 与 macOS DMG/ZIP
+- 应用更新：Windows 支持检查、下载并重启安装 GitHub Release 最新版本
+
+## 版本更新
+
+`v2.0.1` 是自动更新桥接版本。已经安装 `v1.0.0` 或 `v2.0.0` 的用户，需要从 [GitHub Releases](https://github.com/xautzh/moyu-reader/releases/latest) 手动下载安装 `v2.0.1` 一次。此后 Windows 用户可通过“帮助 → 检查更新…”完成后续更新。
+
+macOS 构建目前未签名，因此仍需手动下载新版本；完成 Developer ID 签名和 Apple 公证后再启用应用内自动更新。
 
 ## 快捷键
 
@@ -72,7 +79,7 @@ Windows x64：
 npm run dist:win
 ```
 
-安装包输出到 `dist/墨阅-2.0.0-Windows.exe`。
+安装包输出到 `dist/Moyu-2.0.1-Windows.exe`，同时生成自动更新所需的 `latest.yml` 和差分下载元数据。
 
 macOS Intel 与 Apple Silicon（需在 macOS 上执行）：
 

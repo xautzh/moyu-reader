@@ -9,7 +9,7 @@ const aliases = ['x64.dmg', 'x64.zip', 'arm64.dmg', 'arm64.zip']
 await Promise.all(
   aliases.map((suffix) =>
     copyFile(
-      join(outputDirectory, `墨阅-${packageJson.version}-macOS-${suffix}`),
+      join(outputDirectory, `Moyu-${packageJson.version}-macOS-${suffix}`),
       join(outputDirectory, `MoyuReader-${packageJson.version}-mac-${suffix}`)
     )
   )

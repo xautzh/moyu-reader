@@ -77,6 +77,25 @@ export interface SavedAsset {
 
 export type ExportResult = { ok: true; filePath?: string } | { ok: false; message: string }
 
+export type UpdateStatus =
+  | 'unsupported'
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'downloaded'
+  | 'up-to-date'
+  | 'error'
+
+export interface AppUpdateState {
+  status: UpdateStatus
+  currentVersion: string
+  version?: string
+  percent?: number
+  message?: string
+  manual?: boolean
+}
+
 export type AppCommand =
   | 'new'
   | 'open'
@@ -91,6 +110,7 @@ export type AppCommand =
   | 'mode-preview'
   | 'toggle-focus'
   | 'toggle-typewriter'
+  | 'check-update'
 
 export interface MoyuApi {
   readonly platform: NodeJS.Platform
@@ -120,6 +140,10 @@ export interface MoyuApi {
   exportHtml: (html: string, suggestedName: string) => Promise<ExportResult | null>
   exportPdf: (suggestedName: string) => Promise<ExportResult | null>
   printDocument: () => Promise<ExportResult>
+  getUpdateState: () => Promise<AppUpdateState>
+  checkForUpdates: () => Promise<AppUpdateState>
+  downloadUpdate: () => Promise<AppUpdateState>
+  installUpdate: () => Promise<void>
   setDirty: (dirty: boolean) => void
   confirmClose: () => void
   cancelClose: () => void
@@ -135,4 +159,5 @@ export interface MoyuApi {
   onFindResult: (listener: (result: FindResult) => void) => () => void
   onCloseRequested: (listener: () => void) => () => void
   onAppCommand: (listener: (command: AppCommand) => void) => () => void
+  onUpdateState: (listener: (state: AppUpdateState) => void) => () => void
 }

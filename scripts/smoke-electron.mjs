@@ -147,9 +147,26 @@ try {
   )
 
   const preloadAvailable = await page.evaluate(
-    () => typeof window.moyu?.saveDocument === 'function'
+    () =>
+      typeof window.moyu?.saveDocument === 'function' &&
+      typeof window.moyu?.checkForUpdates === 'function' &&
+      typeof window.moyu?.installUpdate === 'function'
   )
   assert(preloadAvailable, 'Preload bridge was not exposed to the renderer.')
+  const initialUpdateState = await page.evaluate(() => window.moyu.getUpdateState())
+  assert(initialUpdateState.currentVersion === '2.0.1', 'The updater reported the wrong version.')
+  assert(initialUpdateState.status !== 'error', 'The updater started in an error state.')
+  if (!isPackagedExecutable) {
+    await electronApp.evaluate(({ Menu }) => {
+      Menu.getApplicationMenu()?.getMenuItemById('check-for-updates')?.click()
+    })
+    const updateDialog = page.getByRole('dialog', {
+      name: '当前环境暂不支持自动更新'
+    })
+    await updateDialog.waitFor({ state: 'visible' })
+    await updateDialog.locator('.dialog-button', { hasText: '关闭' }).click()
+    reportStep('manual update entry and unsupported-state dialog ready')
+  }
   const savedAsset = await page.evaluate(
     async ({ filePath }) => {
       const svg =

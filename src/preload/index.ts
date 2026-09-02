@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type {
   AppCommand,
+  AppUpdateState,
   DraftRecord,
   ExportResult,
   FindResult,
@@ -70,6 +71,10 @@ const api: MoyuApi = {
   exportPdf: (suggestedName) =>
     ipcRenderer.invoke('export:pdf', suggestedName) as Promise<ExportResult | null>,
   printDocument: () => ipcRenderer.invoke('document:print') as Promise<ExportResult>,
+  getUpdateState: () => ipcRenderer.invoke('update:get-state') as Promise<AppUpdateState>,
+  checkForUpdates: () => ipcRenderer.invoke('update:check') as Promise<AppUpdateState>,
+  downloadUpdate: () => ipcRenderer.invoke('update:download') as Promise<AppUpdateState>,
+  installUpdate: () => ipcRenderer.invoke('update:install') as Promise<void>,
   setDirty: (dirty) => ipcRenderer.send('document:set-dirty', dirty),
   confirmClose: () => ipcRenderer.send('window:confirm-close'),
   cancelClose: () => ipcRenderer.send('window:cancel-close'),
@@ -88,7 +93,8 @@ const api: MoyuApi = {
   onDocumentError: (listener) => subscribe<string>('document:error', listener),
   onFindResult: (listener) => subscribe<FindResult>('window:find-result', listener),
   onCloseRequested: (listener) => subscribeWithoutPayload('window:close-requested', listener),
-  onAppCommand: (listener) => subscribe<AppCommand>('app-command', listener)
+  onAppCommand: (listener) => subscribe<AppCommand>('app-command', listener),
+  onUpdateState: (listener) => subscribe<AppUpdateState>('update:state', listener)
 }
 
 contextBridge.exposeInMainWorld('moyu', api)

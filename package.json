@@ -1,6 +1,6 @@
 {
   "name": "moyu-reader",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "墨阅：支持所见即所得、源码与实时预览的桌面 Markdown 编辑器。",
   "main": "./out/main/index.js",
   "author": "墨阅",
@@ -23,6 +23,7 @@
     "@milkdown/crepe": "^7.22.1",
     "@milkdown/kit": "^7.22.1",
     "@uiw/react-codemirror": "^4.25.11",
+    "electron-updater": "^6.8.9",
     "github-slugger": "^2.0.0",
     "katex": "^0.18.5",
     "lucide-react": "^1.38.0",
@@ -66,6 +67,13 @@
       "output": "dist",
       "buildResources": "build"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "xautzh",
+        "repo": "moyu-reader"
+      }
+    ],
     "files": [
       "out/**/*",
       "package.json"
@@ -81,7 +89,7 @@
       ],
       "icon": "build/icon.png",
       "executableName": "墨阅",
-      "artifactName": "墨阅-${version}-Windows.${ext}"
+      "artifactName": "Moyu-${version}-Windows.${ext}"
     },
     "mac": {
       "target": [
@@ -102,7 +110,7 @@
       ],
       "icon": "build/icon.png",
       "category": "public.app-category.productivity",
-      "artifactName": "墨阅-${version}-macOS-${arch}.${ext}"
+      "artifactName": "Moyu-${version}-macOS-${arch}.${ext}"
     },
     "nsis": {
       "oneClick": false,

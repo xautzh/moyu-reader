@@ -33,8 +33,10 @@ import {
   protocol,
   shell
 } from 'electron'
+import { autoUpdater, type ProgressInfo, type UpdateInfo } from 'electron-updater'
 import type {
   AppCommand,
+  AppUpdateState,
   DraftRecord,
   ExportResult,
   MarkdownDocument,
@@ -55,6 +57,12 @@ import {
   rewriteMarkdownImageSources
 } from './editor-utils'
 import { isMarkdownFile, pickMarkdownArgument, sanitizeRecentFiles } from './file-utils'
+import {
+  createInitialUpdateState,
+  normalizeUpdateProgress,
+  readableUpdateError,
+  updateSupport
+} from './update-utils'
 
 const currentDirectory = __dirname
 const MAX_FILE_SIZE = 20 * 1024 * 1024
@@ -63,6 +71,8 @@ const RECENT_FILE_LIMIT = 12
 const DRAFT_LIMIT = 20
 const WORKSPACE_FILE_LIMIT = 500
 const WORKSPACE_DEPTH_LIMIT = 8
+const UPDATE_CHECK_INTERVAL = 6 * 60 * 60 * 1000
+const UPDATE_STARTUP_DELAY = 15 * 1000
 const IGNORED_WORKSPACE_DIRECTORIES = new Set([
   '.git',
   '.idea',
@@ -92,8 +102,13 @@ let startupFilePath = pickMarkdownArgument(process.argv)
 let rendererDirty = false
 let allowWindowClose = false
 let quitRequested = false
+let pendingUpdateInstall = false
 let lastObservedModifiedAt = 0
 let lastObservedSize = 0
+let updaterInitialized = false
+let updateCheckManual = false
+let updateTimer: NodeJS.Timeout | null = null
+let updateState = createInitialUpdateState(app.getVersion(), app.isPackaged, process.platform)
 const allowedAssetRoots = new Set<string>()
 const allowedWorkspaceRoots = new Set<string>()
 
@@ -920,6 +935,165 @@ function sendAppCommand(command: AppCommand): void {
   }
 }
 
+function publishUpdateState(nextState: AppUpdateState): AppUpdateState {
+  updateState = nextState
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('update:state', updateState)
+  }
+  return updateState
+}
+
+async function checkForAppUpdates(manual: boolean): Promise<AppUpdateState> {
+  const support = updateSupport(app.isPackaged, process.platform)
+  if (!support.enabled) {
+    return publishUpdateState({
+      status: 'unsupported',
+      currentVersion: app.getVersion(),
+      message: support.reason,
+      manual
+    })
+  }
+  if (updateState.status === 'checking' || updateState.status === 'downloading') {
+    return updateState
+  }
+
+  updateCheckManual = manual
+  publishUpdateState({ status: 'checking', currentVersion: app.getVersion(), manual })
+  try {
+    await autoUpdater.checkForUpdates()
+  } catch (error) {
+    console.error('[updater] check failed', error)
+    publishUpdateState({
+      status: 'error',
+      currentVersion: app.getVersion(),
+      message: readableUpdateError(error),
+      manual
+    })
+  }
+  return updateState
+}
+
+async function downloadAppUpdate(): Promise<AppUpdateState> {
+  if (updateState.status !== 'available') {
+    return updateState
+  }
+  const version = updateState.version
+  publishUpdateState({
+    status: 'downloading',
+    currentVersion: app.getVersion(),
+    version,
+    percent: 0,
+    manual: true
+  })
+  try {
+    await autoUpdater.downloadUpdate()
+  } catch (error) {
+    console.error('[updater] download failed', error)
+    publishUpdateState({
+      status: 'error',
+      currentVersion: app.getVersion(),
+      version,
+      message: readableUpdateError(error),
+      manual: true
+    })
+  }
+  return updateState
+}
+
+function installDownloadedUpdate(): void {
+  if (updateState.status !== 'downloaded') {
+    return
+  }
+  pendingUpdateInstall = true
+  if (rendererDirty && !allowWindowClose && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('window:close-requested')
+    focusMainWindow()
+    return
+  }
+  allowWindowClose = true
+  pendingUpdateInstall = false
+  autoUpdater.quitAndInstall(false, true)
+}
+
+function initializeAutoUpdater(): void {
+  if (updaterInitialized) {
+    return
+  }
+  updaterInitialized = true
+  const support = updateSupport(app.isPackaged, process.platform)
+  if (!support.enabled) {
+    publishUpdateState({
+      status: 'unsupported',
+      currentVersion: app.getVersion(),
+      message: support.reason
+    })
+    return
+  }
+
+  autoUpdater.autoDownload = false
+  autoUpdater.autoInstallOnAppQuit = true
+  autoUpdater.allowPrerelease = false
+  autoUpdater.on('checking-for-update', () => {
+    publishUpdateState({
+      status: 'checking',
+      currentVersion: app.getVersion(),
+      manual: updateCheckManual
+    })
+  })
+  autoUpdater.on('update-available', (info: UpdateInfo) => {
+    publishUpdateState({
+      status: 'available',
+      currentVersion: app.getVersion(),
+      version: info.version,
+      manual: updateCheckManual
+    })
+  })
+  autoUpdater.on('update-not-available', () => {
+    publishUpdateState({
+      status: 'up-to-date',
+      currentVersion: app.getVersion(),
+      manual: updateCheckManual
+    })
+  })
+  autoUpdater.on('download-progress', (progress: ProgressInfo) => {
+    publishUpdateState({
+      status: 'downloading',
+      currentVersion: app.getVersion(),
+      version: updateState.version,
+      percent: normalizeUpdateProgress(progress.percent),
+      manual: true
+    })
+  })
+  autoUpdater.on('update-downloaded', (info: UpdateInfo) => {
+    publishUpdateState({
+      status: 'downloaded',
+      currentVersion: app.getVersion(),
+      version: info.version,
+      percent: 100,
+      manual: true
+    })
+  })
+  autoUpdater.on('error', (error: Error) => {
+    console.error('[updater] error', error)
+    publishUpdateState({
+      status: 'error',
+      currentVersion: app.getVersion(),
+      version: updateState.version,
+      message: readableUpdateError(error),
+      manual: updateCheckManual
+    })
+  })
+
+  const startupTimer = setTimeout(() => {
+    void checkForAppUpdates(false)
+  }, UPDATE_STARTUP_DELAY)
+  startupTimer.unref()
+  updateTimer = setInterval(() => {
+    void checkForAppUpdates(false)
+  }, UPDATE_CHECK_INTERVAL)
+  updateTimer.unref()
+}
+
 function createApplicationMenu(): void {
   const isMac = process.platform === 'darwin'
   const fileSubmenu: MenuItemConstructorOptions[] = [
@@ -1038,6 +1212,16 @@ function createApplicationMenu(): void {
     {
       label: '帮助',
       submenu: [
+        {
+          id: 'check-for-updates',
+          label: '检查更新…',
+          click: () => sendAppCommand('check-update')
+        },
+        {
+          label: `当前版本 ${app.getVersion()}`,
+          enabled: false
+        },
+        { type: 'separator' },
         {
           label: '项目主页',
           click: () => {
@@ -1212,6 +1396,10 @@ function registerIpcHandlers(): void {
   )
   ipcMain.handle('export:pdf', (_event, suggestedName: string) => exportPdf(suggestedName))
   ipcMain.handle('document:print', () => printDocument())
+  ipcMain.handle('update:get-state', () => updateState)
+  ipcMain.handle('update:check', () => checkForAppUpdates(true))
+  ipcMain.handle('update:download', () => downloadAppUpdate())
+  ipcMain.handle('update:install', () => installDownloadedUpdate())
   ipcMain.on('document:set-dirty', (event, dirty: boolean) => {
     if (BrowserWindow.fromWebContents(event.sender) === mainWindow) {
       rendererDirty = Boolean(dirty)
@@ -1224,6 +1412,11 @@ function registerIpcHandlers(): void {
     }
     rendererDirty = false
     allowWindowClose = true
+    if (pendingUpdateInstall) {
+      pendingUpdateInstall = false
+      autoUpdater.quitAndInstall(false, true)
+      return
+    }
     if (quitRequested) {
       app.quit()
     } else {
@@ -1234,6 +1427,7 @@ function registerIpcHandlers(): void {
     if (BrowserWindow.fromWebContents(event.sender) === mainWindow) {
       quitRequested = false
       allowWindowClose = false
+      pendingUpdateInstall = false
     }
   })
   ipcMain.on('window:set-theme', (event, theme: 'light' | 'dark') => {
@@ -1330,6 +1524,7 @@ if (!hasSingleInstanceLock) {
     registerIpcHandlers()
     createApplicationMenu()
     mainWindow = createWindow()
+    initializeAutoUpdater()
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -1347,6 +1542,10 @@ if (!hasSingleInstanceLock) {
       mainWindow.webContents.send('window:close-requested')
       focusMainWindow()
       return
+    }
+    if (updateTimer) {
+      clearInterval(updateTimer)
+      updateTimer = null
     }
     disposeWatcher()
   })
